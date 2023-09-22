@@ -132,11 +132,19 @@ class Puzzle:
 
         print(self.matriz)
 
-    def resolverPuzzle(self, numResolucoes):
+    def resolverPuzzleManhatan(self, numResolucoes):
         for i in range(numResolucoes):
             self.embaralhaPuzzle()
             while not self.verificaTermino():
                 self.moverManhatan()
+            self.historicoMovimentos.append(self.movimentosRealizados)
+        self.printResultadosFinais()
+
+    def resolverPuzzleAleatorio(self, numResolucoes):
+        for i in range(numResolucoes):
+            self.embaralhaPuzzle()
+            while not self.verificaTermino():
+                self.moverAleatorio()
             self.historicoMovimentos.append(self.movimentosRealizados)
         self.printResultadosFinais()
 
@@ -153,7 +161,8 @@ class Puzzle:
 
 def main():
     puzzle = Puzzle()
-    puzzle.resolverPuzzle(1)
+    puzzle.resolverPuzzleManhatan(1)
+    #puzzle.resolverPuzzleAleatorio(1)
 
 if __name__ == "__main__":
     main()
