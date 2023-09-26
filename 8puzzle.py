@@ -9,10 +9,13 @@ class Puzzle:
         self.movimentosRealizados = 0
         self.historicoMovimentos = []
         self.movimentoProibido = ()
+        self.idPredAtual = 1
+        self.firstPrint = 1
 
     def embaralhaPuzzle(self):
         self.movimentosRealizados = 0
         self.matriz = [[],[],[]]
+        self.idPredAtual = 1
         numeros = [0,1,2,3,4,5,6,7,8]
         for i in range(3):
             for j in range(3):
@@ -29,27 +32,51 @@ class Puzzle:
             return True
         else:
             return False
+    
+    def posicaoZero(self, matriz):
+        xy = ()
+        for i in range(3):
+            for j in range(3):
 
-    def possiveisMovimentos(self):
+                if matriz[i][j] == 0:
+                    xy = (i,j)
+
+        return xy
+
+    def possiveisMovimentos(self, pred=0, matriz=[]):
         possiveisMovimentos = []
         x = self.zeroPos[1]
         y = self.zeroPos[0]
+        if matriz != []:
+            xy = self.posicaoZero(matriz)
+            x = xy[0]
+            y = xy[1]
+        
+        movimentoAnterior = self.procuraMovimento(pred, possiveisMovimentos)
 
         if (y == 1):
-            possiveisMovimentos.append((y-1, x))
-            possiveisMovimentos.append((y+1, x))
+            possiveisMovimentos.append((y-1, x, pred, self.idPredAtual))
+            self.idPredAtual += 1
+            possiveisMovimentos.append((y+1, x , pred, self.idPredAtual))
+            self.idPredAtual += 1
         elif (y == 0):
-            possiveisMovimentos.append((y+1, x))
+            possiveisMovimentos.append((y+1, x, pred, self.idPredAtual))
+            self.idPredAtual += 1
         else:
-            possiveisMovimentos.append((y-1, x))
+            possiveisMovimentos.append((y-1, x, pred, self.idPredAtual))
+            self.idPredAtual += 1
 
         if (x == 1):
-            possiveisMovimentos.append((y, x-1))
-            possiveisMovimentos.append((y, x+1))
+            possiveisMovimentos.append((y, x-1, pred, self.idPredAtual))
+            self.idPredAtual += 1
+            possiveisMovimentos.append((y, x+1, pred, self.idPredAtual))
+            self.idPredAtual += 1
         elif (x == 0):
-            possiveisMovimentos.append((y, x+1))
+            possiveisMovimentos.append((y, x+1, pred, self.idPredAtual))
+            self.idPredAtual += 1
         else:
-            possiveisMovimentos.append((y, x-1))
+            possiveisMovimentos.append((y, x-1, pred, self.idPredAtual))
+            self.idPredAtual += 1
 
         return possiveisMovimentos
 
@@ -63,6 +90,36 @@ class Puzzle:
         tabuleiros = self.calculaDistanciaManhatan(possiveisMovimentos)
         movimento = self.selecionaMovimento(tabuleiros)
         self.moveZero(movimento)
+    
+    def moverBFS(self):
+        possiveisMovimentos = self.possiveisMovimentos()
+        movimentosFila = copy.deepcopy(possiveisMovimentos)
+        tabuleiros = self.BFS(possiveisMovimentos, movimentosFila)
+        print("saiu do BFS")
+        movimento = self.selecionaTabuleiro(tabuleiros)
+        ordemMovimentos = self.tracaMovimentos(movimento, possiveisMovimentos)
+        for mov in ordemMovimentos:
+            self.moveZero(mov)
+    
+    def tracaMovimentos(self, movimento, possiveisMovimentos):
+        ordemMovimentos = []
+        predZero = False
+        while not predZero:
+            mov = (movimento[0], movimento[1])
+            ordemMovimentos.append(mov)
+            pred = movimento[2]
+            if pred != 0:
+                movimento = self.procuraMovimento(pred, possiveisMovimentos)
+            else:
+                predZero = True
+        ordemMovimentos.reverse()
+        return ordemMovimentos
+    
+    def procuraMovimento(self, idMovimento, possiveisMovimentos):
+        for movimento in possiveisMovimentos:
+            if idMovimento == movimento[3]:
+                return movimento
+        return False
 
     def geraMatrizTemp(self, movimento):
         novaMatriz = copy.deepcopy(self.matriz)
@@ -88,7 +145,6 @@ class Puzzle:
 
     def calculaDistanciaManhatan(self, movimentos):
         tabuleiros = []
-        novaMatriz = []
         for movimento in movimentos:
             matriz = self.geraMatrizTemp(movimento)
             distancia = 0
@@ -105,6 +161,37 @@ class Puzzle:
             tabuleiros.append(tabuleiro)
         return tabuleiros
     
+    def BFS(self, movimentos, movimentosFila):
+        tabuleiros = []
+        distanciaZero = False
+        while movimentosFila != [] or not distanciaZero:
+            movimento = movimentosFila.pop(0)
+            matriz = self.geraMatrizTemp(movimento)
+            predecessor = self.idPredAtual
+            self.idPredAtual += 1
+            possiveisMovimentos = self.possiveisMovimentos(predecessor, matriz)
+            movimentos.extend(possiveisMovimentos)
+            movimentosFila.extend(possiveisMovimentos)
+            distancia = 0
+            for i in range(3):
+                for j in range(3):
+                    valor = matriz[i][j]
+                    y = i
+                    x = j
+                    goal = self.pegaGoal(valor)
+                    goalY = goal[0]
+                    goalX = goal[1]
+                    distancia += abs(y - goalY) + abs(x - goalX)
+            tabuleiro = (matriz, movimento, distancia)
+            if distancia < 10:
+                print(tabuleiro)
+                self.firstPrint += 1
+            tabuleiros.append(tabuleiro)
+            if distancia == 0:
+                distanciaZero = True
+
+        return tabuleiros
+    
     def selecionaMovimento(self, tabuleiros):
         movimentoSelecionado = ()
         distanciaAtual = 100
@@ -112,6 +199,13 @@ class Puzzle:
             if distancia < distanciaAtual and movimento != self.movimentoProibido:
                 movimentoSelecionado = movimento
                 distanciaAtual = distancia
+        return movimentoSelecionado
+
+    def selecionaTabuleiro(self, tabuleiros):
+        movimentoSelecionado = ()
+        for tabuleiro, movimento, distancia in tabuleiros:
+            if distancia == 0:
+                movimentoSelecionado = movimento
         return movimentoSelecionado
 
     def moveZero(self, novaPosicao):
@@ -147,6 +241,13 @@ class Puzzle:
                 self.moverAleatorio()
             self.historicoMovimentos.append(self.movimentosRealizados)
         self.printResultadosFinais()
+    
+    def resolverPuzzleBFS(self, numResolucoes):
+        for i in range(numResolucoes):
+            self.embaralhaPuzzle()
+            self.moverBFS()
+            self.historicoMovimentos.append(self.movimentosRealizados)
+        self.printResultadosFinais()
 
     def printResultadosFinais(self):
         media = np.mean(self.historicoMovimentos)
@@ -161,8 +262,9 @@ class Puzzle:
 
 def main():
     puzzle = Puzzle()
-    puzzle.resolverPuzzleManhatan(1)
+    #puzzle.resolverPuzzleManhatan(1)
     #puzzle.resolverPuzzleAleatorio(1)
+    puzzle.resolverPuzzleBFS(1)
 
 if __name__ == "__main__":
     main()
