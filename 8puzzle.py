@@ -25,8 +25,6 @@ class Puzzle:
                 if elementoSorteado == 0:
                     self.zeroPos = [i, j]
 
-        print(self.matriz)
-
     def verificaTermino(self):
         if (self.matriz == [[1,2,3],[4,5,6],[7,8,0]]):
             return True
@@ -43,40 +41,47 @@ class Puzzle:
 
         return xy
 
-    def possiveisMovimentos(self, pred=0, matriz=[]):
+
+
+    def verificaAdiciona(self, y, x, yAnt, xAnt, pred, possiveisMovimentos, matriz):
+        if (y != yAnt and x != xAnt):
+            possiveisMovimentos.append((y, x, pred, self.idPredAtual, matriz))
+            self.idPredAtual += 1
+        return possiveisMovimentos
+
+
+    def possiveisMovimentos(self, pred=0, matriz=[], movimentoAnterior=()):
         possiveisMovimentos = []
         x = self.zeroPos[1]
         y = self.zeroPos[0]
+        xAnt = -1
+        yAnt = -1
         if matriz != []:
             xy = self.posicaoZero(matriz)
-            x = xy[0]
-            y = xy[1]
+            x = xy[1]
+            y = xy[0]
+        else:
+            matriz = self.matriz
         
-        movimentoAnterior = self.procuraMovimento(pred, possiveisMovimentos)
+        if movimentoAnterior != () and movimentoAnterior != False:
+            xAnt = movimentoAnterior[1]
+            yAnt = movimentoAnterior[0]
 
         if (y == 1):
-            possiveisMovimentos.append((y-1, x, pred, self.idPredAtual))
-            self.idPredAtual += 1
-            possiveisMovimentos.append((y+1, x , pred, self.idPredAtual))
-            self.idPredAtual += 1
+            possiveisMovimentos = self.verificaAdiciona(y-1, x, yAnt, xAnt, pred, possiveisMovimentos, matriz)
+            possiveisMovimentos = self.verificaAdiciona(y+1, x, yAnt, xAnt, pred, possiveisMovimentos, matriz)
         elif (y == 0):
-            possiveisMovimentos.append((y+1, x, pred, self.idPredAtual))
-            self.idPredAtual += 1
+            possiveisMovimentos = self.verificaAdiciona(y+1, x, yAnt, xAnt, pred, possiveisMovimentos, matriz)
         else:
-            possiveisMovimentos.append((y-1, x, pred, self.idPredAtual))
-            self.idPredAtual += 1
+            possiveisMovimentos = self.verificaAdiciona(y-1, x, yAnt, xAnt, pred, possiveisMovimentos, matriz)
 
         if (x == 1):
-            possiveisMovimentos.append((y, x-1, pred, self.idPredAtual))
-            self.idPredAtual += 1
-            possiveisMovimentos.append((y, x+1, pred, self.idPredAtual))
-            self.idPredAtual += 1
+            possiveisMovimentos = self.verificaAdiciona(y, x-1, yAnt, xAnt, pred, possiveisMovimentos, matriz)
+            possiveisMovimentos = self.verificaAdiciona(y, x+1, yAnt, xAnt, pred, possiveisMovimentos, matriz)
         elif (x == 0):
-            possiveisMovimentos.append((y, x+1, pred, self.idPredAtual))
-            self.idPredAtual += 1
+            possiveisMovimentos = self.verificaAdiciona(y, x+1, yAnt, xAnt, pred, possiveisMovimentos, matriz)
         else:
-            possiveisMovimentos.append((y, x-1, pred, self.idPredAtual))
-            self.idPredAtual += 1
+            possiveisMovimentos = self.verificaAdiciona(y, x-1, yAnt, xAnt, pred, possiveisMovimentos, matriz)
 
         return possiveisMovimentos
 
@@ -95,7 +100,6 @@ class Puzzle:
         possiveisMovimentos = self.possiveisMovimentos()
         movimentosFila = copy.deepcopy(possiveisMovimentos)
         tabuleiros = self.BFS(possiveisMovimentos, movimentosFila)
-        print("saiu do BFS")
         movimento = self.selecionaTabuleiro(tabuleiros)
         ordemMovimentos = self.tracaMovimentos(movimento, possiveisMovimentos)
         for mov in ordemMovimentos:
@@ -134,6 +138,20 @@ class Puzzle:
         novaMatriz[novoY][novoX] = 0
 
         return novaMatriz
+
+    def geraMatrizTempMemoria(self, matriz, movimento):
+
+        xy = self.posicaoZero(matriz)
+        x = xy[1]
+        y = xy[0]
+
+        novoX = movimento[1]
+        novoY = movimento[0]
+
+        matriz[y][x] = matriz[novoY][novoX]
+        matriz[novoY][novoX] = 0
+
+        return matriz
     
     def pegaGoal(self, numero):
         matriz = [[1,2,3], [4,5,6], [7,8,0]]
@@ -164,12 +182,15 @@ class Puzzle:
     def BFS(self, movimentos, movimentosFila):
         tabuleiros = []
         distanciaZero = False
-        while movimentosFila != [] or not distanciaZero:
+        while movimentosFila != [] and not distanciaZero:
             movimento = movimentosFila.pop(0)
-            matriz = self.geraMatrizTemp(movimento)
-            predecessor = self.idPredAtual
-            self.idPredAtual += 1
-            possiveisMovimentos = self.possiveisMovimentos(predecessor, matriz)
+            predecessor = movimento[3]
+            if predecessor == 0:
+                matriz = self.geraMatrizTemp(movimento)
+            else:
+                matriz = self.geraMatrizTempMemoria(movimento[4], movimento)
+            movimentoAnterior = self.procuraMovimento(predecessor-1, movimentos)
+            possiveisMovimentos = self.possiveisMovimentos(predecessor, matriz, movimentoAnterior)
             movimentos.extend(possiveisMovimentos)
             movimentosFila.extend(possiveisMovimentos)
             distancia = 0
@@ -183,9 +204,6 @@ class Puzzle:
                     goalX = goal[1]
                     distancia += abs(y - goalY) + abs(x - goalX)
             tabuleiro = (matriz, movimento, distancia)
-            if distancia < 10:
-                print(tabuleiro)
-                self.firstPrint += 1
             tabuleiros.append(tabuleiro)
             if distancia == 0:
                 distanciaZero = True
@@ -223,8 +241,6 @@ class Puzzle:
         self.movimentosRealizados += 1
 
         self.movimentoProibido = (y, x)
-
-        print(self.matriz)
 
     def resolverPuzzleManhatan(self, numResolucoes):
         for i in range(numResolucoes):
