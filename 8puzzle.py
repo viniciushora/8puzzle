@@ -41,14 +41,26 @@ class Puzzle:
 
         return xy
 
-
-
     def verificaAdiciona(self, y, x, yAnt, xAnt, pred, possiveisMovimentos, matriz):
         if (y != yAnt and x != xAnt):
             possiveisMovimentos.append((y, x, pred, self.idPredAtual, matriz))
             self.idPredAtual += 1
         return possiveisMovimentos
 
+    def verificaAdicionaOrdenado(self, y, x, yAnt, xAnt, pred, possiveisMovimentos, matriz, pesoAcumulado, movimentosFila):
+        movimento = (y,x)
+        novaMatriz = self.geraMatrizTempMemoria(matriz, movimento)
+        peso = self.distanciaManhatan(novaMatriz)
+        pesoAcumulado += peso
+        if (y != yAnt and x != xAnt):
+            possiveisMovimentos.append((y, x, pred, self.idPredAtual, matriz, pesoAcumulado, peso))
+            movimentosFila = self.insereOrdenado(movimentosFila, (y, x, pred, self.idPredAtual, matriz, pesoAcumulado, peso))
+            self.idPredAtual += 1
+        return possiveisMovimentos, movimentosFila
+
+    def insereOrdenado(self, fila, elemento):
+        listaOrdenada = sorted(fila + [elemento], key=lambda x: x[5])
+        return listaOrdenada
 
     def possiveisMovimentos(self, pred=0, matriz=[], movimentoAnterior=()):
         possiveisMovimentos = []
@@ -84,6 +96,40 @@ class Puzzle:
             possiveisMovimentos = self.verificaAdiciona(y, x-1, yAnt, xAnt, pred, possiveisMovimentos, matriz)
 
         return possiveisMovimentos
+    
+    def possiveisMovimentosOrdenados(self, pesoAcumulado = 0, pred=0, matriz=[], movimentoAnterior=(), possiveisMovimentos = [], movimentosFila = []):
+        x = self.zeroPos[1]
+        y = self.zeroPos[0]
+        xAnt = -1
+        yAnt = -1
+        if matriz != []:
+            xy = self.posicaoZero(matriz)
+            x = xy[1]
+            y = xy[0]
+        else:
+            matriz = self.matriz
+        
+        if movimentoAnterior != () and movimentoAnterior != False:
+            xAnt = movimentoAnterior[1]
+            yAnt = movimentoAnterior[0]
+
+        if (y == 1):
+            possiveisMovimentos, movimentosFila = self.verificaAdicionaOrdenado(y-1, x, yAnt, xAnt, pred, possiveisMovimentos, matriz, pesoAcumulado, movimentosFila)
+            possiveisMovimentos, movimentosFila = self.verificaAdicionaOrdenado(y+1, x, yAnt, xAnt, pred, possiveisMovimentos, matriz, pesoAcumulado, movimentosFila)
+        elif (y == 0):
+            possiveisMovimentos, movimentosFila = self.verificaAdicionaOrdenado(y+1, x, yAnt, xAnt, pred, possiveisMovimentos, matriz, pesoAcumulado, movimentosFila)
+        else:
+            possiveisMovimentos, movimentosFila = self.verificaAdicionaOrdenado(y-1, x, yAnt, xAnt, pred, possiveisMovimentos, matriz, pesoAcumulado, movimentosFila)
+
+        if (x == 1):
+            possiveisMovimentos, movimentosFila = self.verificaAdicionaOrdenado(y, x-1, yAnt, xAnt, pred, possiveisMovimentos, matriz, pesoAcumulado, movimentosFila)
+            possiveisMovimentos, movimentosFila = self.verificaAdicionaOrdenado(y, x+1, yAnt, xAnt, pred, possiveisMovimentos, matriz, pesoAcumulado, movimentosFila)
+        elif (x == 0):
+            possiveisMovimentos, movimentosFila = self.verificaAdicionaOrdenado(y, x+1, yAnt, xAnt, pred, possiveisMovimentos, matriz, pesoAcumulado, movimentosFila)
+        else:
+            possiveisMovimentos, movimentosFila = self.verificaAdicionaOrdenado(y, x-1, yAnt, xAnt, pred, possiveisMovimentos, matriz, pesoAcumulado, movimentosFila)
+
+        return possiveisMovimentos, movimentosFila
 
     def moverAleatorio(self):
         possiveisMovimentos = self.possiveisMovimentos()
@@ -100,6 +146,14 @@ class Puzzle:
         possiveisMovimentos = self.possiveisMovimentos()
         movimentosFila = copy.deepcopy(possiveisMovimentos)
         tabuleiros = self.BFS(possiveisMovimentos, movimentosFila)
+        movimento = self.selecionaTabuleiro(tabuleiros)
+        ordemMovimentos = self.tracaMovimentos(movimento, possiveisMovimentos)
+        for mov in ordemMovimentos:
+            self.moveZero(mov)
+    
+    def moverUniformCost(self):
+        possiveisMovimentos, movimentosFila = self.possiveisMovimentosOrdenados()
+        tabuleiros = self.uniformCost(possiveisMovimentos, movimentosFila)
         movimento = self.selecionaTabuleiro(tabuleiros)
         ordemMovimentos = self.tracaMovimentos(movimento, possiveisMovimentos)
         for mov in ordemMovimentos:
@@ -165,19 +219,23 @@ class Puzzle:
         tabuleiros = []
         for movimento in movimentos:
             matriz = self.geraMatrizTemp(movimento)
-            distancia = 0
-            for i in range(3):
-                for j in range(3):
-                    valor = matriz[i][j]
-                    y = i
-                    x = j
-                    goal = self.pegaGoal(valor)
-                    goalY = goal[0]
-                    goalX = goal[1]
-                    distancia += abs(y - goalY) + abs(x - goalX)
+            distancia = self.distanciaManhatan(matriz)
             tabuleiro = (matriz, movimento, distancia)
             tabuleiros.append(tabuleiro)
         return tabuleiros
+
+    def distanciaManhatan(self, matriz):
+        distancia = 0
+        for i in range(3):
+            for j in range(3):
+                valor = matriz[i][j]
+                y = i
+                x = j
+                goal = self.pegaGoal(valor)
+                goalY = goal[0]
+                goalX = goal[1]
+                distancia += abs(y - goalY) + abs(x - goalX)
+        return distancia
     
     def BFS(self, movimentos, movimentosFila):
         tabuleiros = []
@@ -193,16 +251,28 @@ class Puzzle:
             possiveisMovimentos = self.possiveisMovimentos(predecessor, matriz, movimentoAnterior)
             movimentos.extend(possiveisMovimentos)
             movimentosFila.extend(possiveisMovimentos)
-            distancia = 0
-            for i in range(3):
-                for j in range(3):
-                    valor = matriz[i][j]
-                    y = i
-                    x = j
-                    goal = self.pegaGoal(valor)
-                    goalY = goal[0]
-                    goalX = goal[1]
-                    distancia += abs(y - goalY) + abs(x - goalX)
+            distancia = self.distanciaManhatan(matriz)
+            tabuleiro = (matriz, movimento, distancia)
+            tabuleiros.append(tabuleiro)
+            if distancia == 0:
+                distanciaZero = True
+
+        return tabuleiros
+
+    def uniformCost(self, movimentos, movimentosFila):
+        tabuleiros = []
+        distanciaZero = False
+        while movimentosFila != [] and not distanciaZero:
+            movimento = movimentosFila.pop(0)
+            predecessor = movimento[3]
+            if predecessor == 0:
+                matriz = self.geraMatrizTemp(movimento)
+            else:
+                matriz = self.geraMatrizTempMemoria(movimento[4], movimento)
+            movimentoAnterior = self.procuraMovimento(predecessor-1, movimentos)
+            distancia = self.distanciaManhatan(matriz)
+            pesoAcumulado = movimento[5]
+            movimentos, movimentosFila = self.possiveisMovimentosOrdenados(pesoAcumulado, predecessor, matriz, movimentoAnterior, movimentos, movimentosFila)
             tabuleiro = (matriz, movimento, distancia)
             tabuleiros.append(tabuleiro)
             if distancia == 0:
@@ -264,6 +334,13 @@ class Puzzle:
             self.moverBFS()
             self.historicoMovimentos.append(self.movimentosRealizados)
         self.printResultadosFinais()
+    
+    def resolverPuzzleUC(self, numResolucoes):
+        for i in range(numResolucoes):
+            self.embaralhaPuzzle()
+            self.moverUniformCost()
+            self.historicoMovimentos.append(self.movimentosRealizados)
+        self.printResultadosFinais()
 
     def printResultadosFinais(self):
         media = np.mean(self.historicoMovimentos)
@@ -280,7 +357,8 @@ def main():
     puzzle = Puzzle()
     #puzzle.resolverPuzzleManhatan(1)
     #puzzle.resolverPuzzleAleatorio(1)
-    puzzle.resolverPuzzleBFS(1)
+    #puzzle.resolverPuzzleBFS(1)
+    puzzle.resolverPuzzleUC(1)
 
 if __name__ == "__main__":
     main()
